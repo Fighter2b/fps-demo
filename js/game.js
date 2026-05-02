@@ -516,6 +516,7 @@ function addBox(x, y, z, w, h, d, mat, castShadow = true, receiveShadow = true) 
   mesh.castShadow = castShadow;
   mesh.receiveShadow = receiveShadow;
   scene.add(mesh);
+  mapObjects.push(mesh);
   // 碰撞体
   colliders.push(new THREE.Box3(
     new THREE.Vector3(x - w/2, y - h/2, z - d/2),
@@ -524,18 +525,39 @@ function addBox(x, y, z, w, h, d, mat, castShadow = true, receiveShadow = true) 
   return mesh;
 }
 
+// ─── 地图系统 ───
+let currentMap = 1;
+const mapObjects = []; // 追踪地图 mesh，用于清除
+
+function clearMap() {
+  for (const m of mapObjects) {
+    scene.remove(m);
+    if (m.geometry) m.geometry.dispose();
+  }
+  mapObjects.length = 0;
+  colliders.length = 0;
+}
+
 function buildMap() {
+  clearMap();
+  if (currentMap === 2) buildMap2();
+  else buildMap1();
+}
+
+function buildMap1() {
   // 地板
   const floorGeo = new THREE.PlaneGeometry(120, 120);
   const floor = new THREE.Mesh(floorGeo, matFloor);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
+  mapObjects.push(floor);
 
   // 天空盒 (简单半球)
   const skyGeo = new THREE.SphereGeometry(150, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
   const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }));
   scene.add(sky);
+  mapObjects.push(sky);
 
   // ── 外围墙 ──
   const wallH = 5, wallT = 0.5;
@@ -602,6 +624,147 @@ function buildMap() {
     const sx = (rng() - 0.5) * 90;
     const sz = (rng() - 0.5) * 90;
     // 避免生成在玩家出生点附近
+    if (Math.abs(sx) < 5 && Math.abs(sz) < 5) continue;
+    const size = 1 + rng() * 1.5;
+    addBox(sx, size / 2, sz, size, size, size, matCrate);
+  }
+}
+
+// ─── 地图2: 沙漠要塞 (Dust2 风格) ───
+function buildMap2() {
+  // 地板
+  const floorGeo = new THREE.PlaneGeometry(120, 120);
+  const floor = new THREE.Mesh(floorGeo, matFloor);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  mapObjects.push(floor);
+
+  // 天空盒
+  const skyGeo = new THREE.SphereGeometry(150, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ color: 0xC8B88A, side: THREE.BackSide }));
+  scene.add(sky);
+  mapObjects.push(sky);
+
+  // ── 外围墙 ──
+  const wH = 5, wT = 0.5;
+  addBox(0, wH/2, -60, 120, wH, wT, matWall);   // 北
+  addBox(0, wH/2, 60, 120, wH, wT, matWall);    // 南
+  addBox(-60, wH/2, 0, wT, wH, 120, matWall);   // 西
+  addBox(60, wH/2, 0, wT, wH, 120, matWall);    // 东
+
+  // ══════════════════════════════════════
+  //  A 点 — 东北区域（高台 + 掩体）
+  // ══════════════════════════════════════
+  // A点高台基座
+  addBox(35, 0.75, -35, 12, 1.5, 12, matConcrete);
+  addBox(35, 0.8, -35, 11, 1.4, 11, matMetal);
+  // A点半围墙（南侧和西侧）
+  addBox(35, 1.5, -28.5, 12, 3, 0.4, matWall);
+  addBox(28.5, 1.5, -35, 0.4, 3, 12, matWall);
+  // A点箱子掩体
+  addBox(38, 0.75, -38, 2, 1.5, 2, matCrate);
+  addBox(38, 2.25, -38, 1.5, 1.5, 1.5, matCrate);
+  addBox(32, 0.75, -32, 2, 1.5, 2, matCrate);
+  addBox(40, 0.75, -32, 1.5, 1.5, 1.5, matCrate);
+
+  // ══════════════════════════════════════
+  //  B 点 — 西南区域（室内建筑）
+  // ══════════════════════════════════════
+  // B点建筑四面墙（留入口）
+  addBox(-35, 1.5, -30, 12, 3, 0.4, matWall);   // 北墙
+  addBox(-35, 1.5, -40, 12, 3, 0.4, matWall);   // 南墙
+  addBox(-41, 1.5, -35, 0.4, 3, 10, matWall);   // 西墙
+  // 东墙留入口（两段）
+  addBox(-29, 1.5, -38, 0.4, 3, 4, matWall);
+  addBox(-29, 1.5, -32, 0.4, 3, 4, matWall);
+  // B点内部箱子
+  addBox(-38, 0.75, -37, 2, 1.5, 2, matCrate);
+  addBox(-33, 0.75, -33, 2, 1.5, 2, matCrate);
+  addBox(-36, 2.25, -37, 1.5, 1.5, 1.5, matCrate);
+  addBox(-38, 0.75, -33, 1.5, 1.5, 1.5, matCrate);
+
+  // ══════════════════════════════════════
+  //  长廊 A — 东侧南北通道
+  // ══════════════════════════════════════
+  addBox(45, 1.5, -15, 0.4, 3, 30, matWall);  // 西壁
+  addBox(52, 1.5, -15, 0.4, 3, 30, matWall);  // 东壁（靠外墙）
+  // 长廊掩体
+  addBox(48, 0.75, -5, 2, 1.5, 2, matCrate);
+  addBox(48, 0.75, -20, 2, 1.5, 2, matCrate);
+  // 长廊连通口（北端开口通A点）
+  // 西壁截断: 从 z=-30 到 z=-25 开口
+  // 长廊南端开口通中央
+
+  // ══════════════════════════════════════
+  //  长廊 B — 西侧东西通道
+  // ══════════════════════════════════════
+  addBox(-15, 1.5, 15, 30, 3, 0.4, matWall);  // 北壁
+  addBox(-15, 1.5, 22, 30, 3, 0.4, matWall);  // 南壁
+  // 长廊掩体
+  addBox(-5, 0.75, 18, 2, 1.5, 2, matCrate);
+  addBox(-25, 0.75, 18, 2, 1.5, 2, matCrate);
+
+  // ══════════════════════════════════════
+  //  中央塔楼
+  // ══════════════════════════════════════
+  // 塔楼主体（四面墙，留两个入口）
+  addBox(0, 1.5, -5, 5, 3, 0.4, matConcrete);  // 北墙
+  addBox(0, 1.5, 5, 5, 3, 0.4, matConcrete);   // 南墙
+  addBox(-2.5, 1.5, 0, 0.4, 3, 10, matConcrete); // 西墙
+  addBox(2.5, 1.5, 0, 0.4, 3, 10, matConcrete);  // 东墙
+  // 塔楼内柱子
+  addBox(0, 2, 0, 1, 4, 1, matMetal);
+  // 塔楼外掩体
+  addBox(-4, 0.75, 0, 1.5, 1.5, 1.5, matCrate);
+  addBox(4, 0.75, 0, 1.5, 1.5, 1.5, matCrate);
+  addBox(0, 0.75, -8, 2, 1.5, 2, matCrate);
+  addBox(0, 0.75, 8, 2, 1.5, 2, matCrate);
+
+  // ══════════════════════════════════════
+  //  隧道 — 连接中央和 A 点
+  // ══════════════════════════════════════
+  addBox(15, 1.5, -10, 0.4, 3, 12, matWall);  // 西壁
+  addBox(22, 1.5, -10, 0.4, 3, 12, matWall);  // 东壁
+  addBox(18.5, 1.5, -16, 7, 3, 0.4, matWall); // 北端封口
+  // 隧道掩体
+  addBox(18, 0.75, -8, 1.5, 1.5, 1.5, matCrate);
+
+  // ══════════════════════════════════════
+  //  通道墙 — 划分区域
+  // ══════════════════════════════════════
+  // 中央到B点通道
+  addBox(-10, 1.5, 5, 0.4, 3, 10, matWall);
+  addBox(-18, 1.5, 0, 12, 3, 0.4, matWall);
+
+  // ══════════════════════════════════════
+  //  散布掩体
+  // ══════════════════════════════════════
+  addBox(20, 0.75, 15, 2, 1.5, 2, matCrate);
+  addBox(-20, 0.75, -15, 2, 1.5, 2, matCrate);
+  addBox(10, 0.75, 25, 3, 1.5, 1.5, matCrate);
+  addBox(-10, 0.75, -25, 3, 1.5, 1.5, matCrate);
+  addBox(25, 0.75, 5, 2, 1.5, 2, matCrate);
+  addBox(-25, 0.75, -5, 2, 1.5, 2, matCrate);
+  addBox(5, 0.75, -30, 2, 1.5, 2, matCrate);
+  addBox(-5, 0.75, 30, 2, 1.5, 2, matCrate);
+
+  // 混凝土掩体块
+  addBox(15, 0.5, 20, 3, 1, 2, matConcrete);
+  addBox(-15, 0.5, -20, 3, 1, 2, matConcrete);
+  addBox(30, 0.5, 10, 2, 1, 3, matConcrete);
+  addBox(-30, 0.5, -10, 2, 1, 3, matConcrete);
+
+  // 红色标记柱
+  addBox(35, 2, -35, 0.3, 4, 0.3, matRed, false);
+  addBox(-35, 2, -35, 0.3, 4, 0.3, matRed, false);
+  addBox(0, 2, 0, 0.3, 5, 0.3, matRed, false);
+
+  // 随机小箱子
+  const rng = mulberry32(77);
+  for (let i = 0; i < 12; i++) {
+    const sx = (rng() - 0.5) * 90;
+    const sz = (rng() - 0.5) * 90;
     if (Math.abs(sx) < 5 && Math.abs(sz) < 5) continue;
     const size = 1 + rng() * 1.5;
     addBox(sx, size / 2, sz, size, size, size, matCrate);
@@ -2197,6 +2360,12 @@ window.__startGame = function(name) {
   state.playerName = name || 'Player1';
   startGame();
   tryLockPointer();
+};
+
+// 地图选择 — 暴露给全局
+window.__selectMap = function(mapId) {
+  currentMap = mapId;
+  buildMap();
 };
 
 // 点击 canvas 也可以锁定鼠标 / 继续游戏

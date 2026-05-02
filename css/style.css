@@ -299,8 +299,8 @@ canvas { display: block; }
   color: #f55; border-color: #f55;
 }
 
-/* ── 排行榜按钮 ── */
-#rankBtn {
+/* ── 地图选择 & 排行榜按钮 ── */
+#mapBtn, #rankBtn {
   display: block; margin: 12px auto 0;
   padding: 10px 36px;
   font-size: 16px; font-weight: 600;
@@ -309,9 +309,63 @@ canvas { display: block; }
   letter-spacing: 2px;
   transition: color .2s, border-color .2s;
 }
-#rankBtn:hover {
+#mapBtn:hover, #rankBtn:hover {
   color: #f0c040; border-color: #f0c040;
 }
+
+/* ── 地图选择弹窗 ── */
+#map-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center;
+}
+#map-overlay.hidden { display: none; }
+#map-box {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 16px; padding: 36px 44px;
+  text-align: center;
+}
+#map-title {
+  font-size: 28px; font-weight: 900; color: #f0c040;
+  margin-bottom: 24px; letter-spacing: 3px;
+}
+#map-cards {
+  display: flex; gap: 24px; margin-bottom: 28px;
+}
+.map-card {
+  width: 180px; padding: 20px 16px;
+  background: rgba(255,255,255,.06);
+  border: 2px solid rgba(255,255,255,.12);
+  border-radius: 14px; cursor: pointer;
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.map-card:hover {
+  transform: scale(1.05);
+  border-color: rgba(255,255,255,.3);
+}
+.map-card.selected {
+  border-color: #f0c040;
+  box-shadow: 0 0 24px rgba(240,192,64,.35);
+  background: rgba(240,192,64,.08);
+}
+.map-preview {
+  font-size: 48px; margin-bottom: 12px;
+}
+.map-name {
+  font-size: 17px; font-weight: 700; color: #fff;
+  margin-bottom: 6px;
+}
+.map-desc {
+  font-size: 12px; color: #888; line-height: 1.4;
+}
+#map-confirm {
+  padding: 10px 36px; font-size: 16px; font-weight: 700;
+  background: #f0c040; color: #111; border: none;
+  cursor: pointer; border-radius: 8px; letter-spacing: 2px;
+  transition: transform .15s;
+}
+#map-confirm:hover { transform: scale(1.05); }
 
 /* ── 玩家名输入 ── */
 #name-overlay {
