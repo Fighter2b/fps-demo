@@ -326,6 +326,104 @@ function createWallTexture() {
 }
 matWall.map = createWallTexture();
 
+// ─── 地图2 沙漠主题材质 ───
+function createSandFloorTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#C2A66B';
+  ctx.fillRect(0, 0, 128, 128);
+  // 沙地纹理 — 不规则斑块
+  for (let i = 0; i < 60; i++) {
+    ctx.fillStyle = `rgba(${160 + Math.random()*40}, ${130 + Math.random()*30}, ${80 + Math.random()*20}, 0.3)`;
+    ctx.beginPath();
+    ctx.ellipse(Math.random()*128, Math.random()*128, 4+Math.random()*10, 3+Math.random()*8, Math.random()*Math.PI, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // 噪声
+  for (let i = 0; i < 3000; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`;
+    ctx.fillRect(Math.random()*128, Math.random()*128, 2, 2);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 6);
+  return tex;
+}
+
+function createSandstoneTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#D4B483';
+  ctx.fillRect(0, 0, 128, 128);
+  // 水平层理线条
+  for (let y = 0; y < 128; y += 3) {
+    ctx.fillStyle = `rgba(${180 + Math.random()*30}, ${150 + Math.random()*25}, ${100 + Math.random()*20}, ${0.15 + Math.random()*0.15})`;
+    ctx.fillRect(0, y, 128, 2);
+  }
+  // 裂纹
+  ctx.strokeStyle = 'rgba(100,80,50,0.2)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(Math.random()*128, Math.random()*128);
+    ctx.lineTo(Math.random()*128, Math.random()*128);
+    ctx.stroke();
+  }
+  // 噪声
+  for (let i = 0; i < 2000; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`;
+    ctx.fillRect(Math.random()*128, Math.random()*128, 2, 2);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function createDesertCrateTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8B6914';
+  ctx.fillRect(0, 0, 128, 128);
+  // 木板条纹
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = i % 2 === 0 ? '#7A5C10' : '#9B7920';
+    ctx.fillRect(0, i * 32, 128, 32);
+  }
+  // 铁钉
+  ctx.fillStyle = '#555';
+  ctx.beginPath(); ctx.arc(20, 20, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(108, 20, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(20, 108, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(108, 108, 3, 0, Math.PI*2); ctx.fill();
+  // 边框
+  ctx.strokeStyle = '#5A4008';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, 124, 124);
+  // 噪声
+  for (let i = 0; i < 1500; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.1})`;
+    ctx.fillRect(Math.random()*128, Math.random()*128, 2, 2);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+const sandFloorTex = createSandFloorTexture();
+const sandstoneTex = createSandstoneTexture();
+const desertCrateTex = createDesertCrateTexture();
+
+const matSandFloor = new THREE.MeshStandardMaterial({ map: sandFloorTex, roughness: 0.9, metalness: 0.05 });
+const matSandstone = new THREE.MeshStandardMaterial({ map: sandstoneTex, roughness: 0.75, metalness: 0.05 });
+const matDesertCrate = new THREE.MeshStandardMaterial({ map: desertCrateTex, roughness: 0.8, metalness: 0.1 });
+const matDesertConcrete = new THREE.MeshStandardMaterial({ color: 0xB8A88A, roughness: 0.8, metalness: 0.05 });
+const matDesertMetal = new THREE.MeshStandardMaterial({ color: 0x7A6E5E, roughness: 0.4, metalness: 0.3 });
+const matAdobe = new THREE.MeshStandardMaterial({ color: 0xC4956A, roughness: 0.85, metalness: 0.05 });
+const matDarkWood = new THREE.MeshStandardMaterial({ color: 0x5A3A1A, roughness: 0.8, metalness: 0.05 });
+
 // 敌人身体纹理 — 战术背心
 function createEnemyBodyTexture() {
   const c = document.createElement('canvas');
@@ -632,142 +730,159 @@ function buildMap1() {
 
 // ─── 地图2: 沙漠要塞 (Dust2 风格) ───
 function buildMap2() {
-  // 地板
+  // 沙地地板
   const floorGeo = new THREE.PlaneGeometry(120, 120);
-  const floor = new THREE.Mesh(floorGeo, matFloor);
+  const floor = new THREE.Mesh(floorGeo, matSandFloor);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
   mapObjects.push(floor);
 
-  // 天空盒
+  // 沙漠天空（暖色调）
   const skyGeo = new THREE.SphereGeometry(150, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-  const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ color: 0xC8B88A, side: THREE.BackSide }));
+  const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ color: 0xE8D5A3, side: THREE.BackSide }));
   scene.add(sky);
   mapObjects.push(sky);
 
-  // ── 外围墙 ──
+  // ── 外围墙（砂岩） ──
   const wH = 5, wT = 0.5;
-  addBox(0, wH/2, -60, 120, wH, wT, matWall);   // 北
-  addBox(0, wH/2, 60, 120, wH, wT, matWall);    // 南
-  addBox(-60, wH/2, 0, wT, wH, 120, matWall);   // 西
-  addBox(60, wH/2, 0, wT, wH, 120, matWall);    // 东
+  addBox(0, wH/2, -60, 120, wH, wT, matSandstone);   // 北
+  addBox(0, wH/2, 60, 120, wH, wT, matSandstone);    // 南
+  addBox(-60, wH/2, 0, wT, wH, 120, matSandstone);   // 西
+  addBox(60, wH/2, 0, wT, wH, 120, matSandstone);    // 东
 
   // ══════════════════════════════════════
-  //  A 点 — 东北区域（高台 + 掩体）
+  //  A 点 — 东北（土坯建筑群）
   // ══════════════════════════════════════
-  // A点高台基座
-  addBox(35, 0.75, -35, 12, 1.5, 12, matConcrete);
-  addBox(35, 0.8, -35, 11, 1.4, 11, matMetal);
-  // A点半围墙（南侧和西侧）
-  addBox(35, 1.5, -28.5, 12, 3, 0.4, matWall);
-  addBox(28.5, 1.5, -35, 0.4, 3, 12, matWall);
-  // A点箱子掩体
-  addBox(38, 0.75, -38, 2, 1.5, 2, matCrate);
-  addBox(38, 2.25, -38, 1.5, 1.5, 1.5, matCrate);
-  addBox(32, 0.75, -32, 2, 1.5, 2, matCrate);
-  addBox(40, 0.75, -32, 1.5, 1.5, 1.5, matCrate);
+  // A点主建筑（土坯房）
+  addBox(38, 2, -38, 10, 4, 0.5, matAdobe);  // 北墙
+  addBox(38, 2, -44, 10, 4, 0.5, matAdobe);  // 南墙
+  addBox(43, 2, -41, 0.5, 4, 6, matAdobe);   // 东墙
+  addBox(33, 2, -41, 0.5, 4, 6, matAdobe);   // 西墙
+  // A点屋顶平台
+  addBox(38, 4.2, -41, 11, 0.4, 7, matDesertMetal);
+  // A点掩体
+  addBox(35, 0.75, -35, 2, 1.5, 2, matDesertCrate);
+  addBox(35, 2.25, -35, 1.5, 1.5, 1.5, matDesertCrate);
+  addBox(42, 0.75, -35, 1.5, 1.5, 1.5, matDesertCrate);
+  // A点外围矮墙
+  addBox(38, 1, -28, 14, 2, 0.5, matAdobe);
+  addBox(28, 1, -38, 0.5, 2, 14, matAdobe);
 
   // ══════════════════════════════════════
-  //  B 点 — 西南区域（室内建筑）
+  //  B 点 — 西南（地下掩体）
   // ══════════════════════════════════════
-  // B点建筑四面墙（留入口）
-  addBox(-35, 1.5, -30, 12, 3, 0.4, matWall);   // 北墙
-  addBox(-35, 1.5, -40, 12, 3, 0.4, matWall);   // 南墙
-  addBox(-41, 1.5, -35, 0.4, 3, 10, matWall);   // 西墙
-  // 东墙留入口（两段）
-  addBox(-29, 1.5, -38, 0.4, 3, 4, matWall);
-  addBox(-29, 1.5, -32, 0.4, 3, 4, matWall);
-  // B点内部箱子
-  addBox(-38, 0.75, -37, 2, 1.5, 2, matCrate);
-  addBox(-33, 0.75, -33, 2, 1.5, 2, matCrate);
-  addBox(-36, 2.25, -37, 1.5, 1.5, 1.5, matCrate);
-  addBox(-38, 0.75, -33, 1.5, 1.5, 1.5, matCrate);
+  // B点半地下建筑
+  addBox(-38, 1.5, -35, 14, 3, 0.5, matSandstone);  // 北墙
+  addBox(-38, 1.5, -44, 14, 3, 0.5, matSandstone);  // 南墙
+  addBox(-45, 1.5, -39.5, 0.5, 3, 9, matSandstone); // 西墙
+  // 东墙留入口
+  addBox(-31, 1.5, -42, 0.5, 3, 4, matSandstone);
+  addBox(-31, 1.5, -37, 0.5, 3, 4, matSandstone);
+  // B点内部
+  addBox(-40, 0.75, -40, 2, 1.5, 2, matDesertCrate);
+  addBox(-35, 0.75, -37, 2, 1.5, 2, matDesertCrate);
+  addBox(-42, 2.25, -40, 1.5, 1.5, 1.5, matDesertCrate);
+  // B点入口掩体
+  addBox(-28, 0.75, -39, 2, 1.5, 2, matDesertCrate);
 
   // ══════════════════════════════════════
-  //  长廊 A — 东侧南北通道
+  //  长廊 A — 东侧集市通道
   // ══════════════════════════════════════
-  addBox(45, 1.5, -15, 0.4, 3, 30, matWall);  // 西壁
-  addBox(52, 1.5, -15, 0.4, 3, 30, matWall);  // 东壁（靠外墙）
-  // 长廊掩体
-  addBox(48, 0.75, -5, 2, 1.5, 2, matCrate);
-  addBox(48, 0.75, -20, 2, 1.5, 2, matCrate);
-  // 长廊连通口（北端开口通A点）
-  // 西壁截断: 从 z=-30 到 z=-25 开口
-  // 长廊南端开口通中央
+  // 两侧摊位墙（不连续，有开口）
+  addBox(46, 1.5, -8, 0.5, 3, 16, matAdobe);
+  addBox(46, 1.5, -30, 0.5, 3, 12, matAdobe);
+  addBox(53, 1.5, -15, 0.5, 3, 30, matSandstone);
+  // 摊位掩体
+  addBox(49, 0.75, -5, 2, 1.5, 2, matDesertCrate);
+  addBox(49, 0.75, -22, 2, 1.5, 2, matDesertCrate);
+  // 拱门装饰柱
+  addBox(46, 2, -16, 0.8, 4, 0.8, matAdobe);
+  addBox(46, 2, -2, 0.8, 4, 0.8, matAdobe);
 
   // ══════════════════════════════════════
-  //  长廊 B — 西侧东西通道
+  //  长廊 B — 西侧狭窄巷道
   // ══════════════════════════════════════
-  addBox(-15, 1.5, 15, 30, 3, 0.4, matWall);  // 北壁
-  addBox(-15, 1.5, 22, 30, 3, 0.4, matWall);  // 南壁
-  // 长廊掩体
-  addBox(-5, 0.75, 18, 2, 1.5, 2, matCrate);
-  addBox(-25, 0.75, 18, 2, 1.5, 2, matCrate);
+  addBox(-15, 1.5, 15, 28, 3, 0.5, matSandstone);  // 北壁
+  addBox(-15, 1.5, 23, 28, 3, 0.5, matSandstone);  // 南壁
+  // 巷道掩体
+  addBox(-5, 0.75, 19, 2, 1.5, 2, matDesertCrate);
+  addBox(-22, 0.75, 19, 1.5, 1.5, 1.5, matDesertCrate);
+  // 巷道中间断墙（制造拐角）
+  addBox(-12, 1.5, 19, 0.5, 3, 4, matAdobe);
 
   // ══════════════════════════════════════
-  //  中央塔楼
+  //  中央 — 清真寺/钟楼
   // ══════════════════════════════════════
-  // 塔楼主体（四面墙，留两个入口）
-  addBox(0, 1.5, -5, 5, 3, 0.4, matConcrete);  // 北墙
-  addBox(0, 1.5, 5, 5, 3, 0.4, matConcrete);   // 南墙
-  addBox(-2.5, 1.5, 0, 0.4, 3, 10, matConcrete); // 西墙
-  addBox(2.5, 1.5, 0, 0.4, 3, 10, matConcrete);  // 东墙
-  // 塔楼内柱子
-  addBox(0, 2, 0, 1, 4, 1, matMetal);
-  // 塔楼外掩体
-  addBox(-4, 0.75, 0, 1.5, 1.5, 1.5, matCrate);
-  addBox(4, 0.75, 0, 1.5, 1.5, 1.5, matCrate);
-  addBox(0, 0.75, -8, 2, 1.5, 2, matCrate);
-  addBox(0, 0.75, 8, 2, 1.5, 2, matCrate);
+  // 主体四面墙（留两个入口）
+  addBox(0, 2, -5, 6, 4, 0.5, matAdobe);   // 北墙
+  addBox(0, 2, 5, 6, 4, 0.5, matAdobe);    // 南墙
+  addBox(-3, 2, 0, 0.5, 4, 10, matAdobe);  // 西墙
+  addBox(3, 2, 0, 0.5, 4, 10, matAdobe);   // 东墙
+  // 穹顶（半球）
+  const domeGeo = new THREE.SphereGeometry(3.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  const dome = new THREE.Mesh(domeGeo, matSandstone);
+  dome.position.set(0, 4, 0);
+  scene.add(dome);
+  mapObjects.push(dome);
+  // 中央柱
+  addBox(0, 2, 0, 1.2, 4, 1.2, matDesertMetal);
+  // 宣礼塔（四角小塔）
+  for (const [tx, tz] of [[-4.5, -6], [4.5, -6], [-4.5, 6], [4.5, 6]]) {
+    addBox(tx, 2.5, tz, 1, 5, 1, matAdobe);
+    addBox(tx, 5.2, tz, 1.3, 0.4, 1.3, matSandstone); // 塔顶
+  }
+  // 外部掩体
+  addBox(-6, 0.75, 0, 1.5, 1.5, 1.5, matDesertCrate);
+  addBox(6, 0.75, 0, 1.5, 1.5, 1.5, matDesertCrate);
+  addBox(0, 0.75, -9, 2, 1.5, 2, matDesertCrate);
+  addBox(0, 0.75, 9, 2, 1.5, 2, matDesertCrate);
 
   // ══════════════════════════════════════
-  //  隧道 — 连接中央和 A 点
+  //  隧道 — 连接中央和 A 点（石砌）
   // ══════════════════════════════════════
-  addBox(15, 1.5, -10, 0.4, 3, 12, matWall);  // 西壁
-  addBox(22, 1.5, -10, 0.4, 3, 12, matWall);  // 东壁
-  addBox(18.5, 1.5, -16, 7, 3, 0.4, matWall); // 北端封口
-  // 隧道掩体
-  addBox(18, 0.75, -8, 1.5, 1.5, 1.5, matCrate);
+  addBox(15, 1.5, -10, 0.5, 3, 12, matSandstone);
+  addBox(22, 1.5, -10, 0.5, 3, 12, matSandstone);
+  addBox(18.5, 1.5, -16, 7, 3, 0.5, matSandstone); // 北端封口
+  // 隧道内掩体
+  addBox(18, 0.75, -8, 1.5, 1.5, 1.5, matDesertCrate);
 
   // ══════════════════════════════════════
-  //  通道墙 — 划分区域
+  //  通道墙
   // ══════════════════════════════════════
-  // 中央到B点通道
-  addBox(-10, 1.5, 5, 0.4, 3, 10, matWall);
-  addBox(-18, 1.5, 0, 12, 3, 0.4, matWall);
+  addBox(-10, 1.5, 5, 0.5, 3, 10, matAdobe);
+  addBox(-18, 1.5, 0, 12, 3, 0.5, matAdobe);
 
   // ══════════════════════════════════════
   //  散布掩体
   // ══════════════════════════════════════
-  addBox(20, 0.75, 15, 2, 1.5, 2, matCrate);
-  addBox(-20, 0.75, -15, 2, 1.5, 2, matCrate);
-  addBox(10, 0.75, 25, 3, 1.5, 1.5, matCrate);
-  addBox(-10, 0.75, -25, 3, 1.5, 1.5, matCrate);
-  addBox(25, 0.75, 5, 2, 1.5, 2, matCrate);
-  addBox(-25, 0.75, -5, 2, 1.5, 2, matCrate);
-  addBox(5, 0.75, -30, 2, 1.5, 2, matCrate);
-  addBox(-5, 0.75, 30, 2, 1.5, 2, matCrate);
+  // 沙袋堆
+  addBox(20, 0.5, 15, 3, 1, 2, matDesertConcrete);
+  addBox(-20, 0.5, -15, 3, 1, 2, matDesertConcrete);
+  addBox(25, 0.5, 5, 2, 1, 3, matDesertConcrete);
+  addBox(-25, 0.5, -5, 2, 1, 3, matDesertConcrete);
+  // 木箱
+  addBox(10, 0.75, 25, 2, 1.5, 2, matDesertCrate);
+  addBox(-10, 0.75, -25, 2, 1.5, 2, matDesertCrate);
+  addBox(5, 0.75, -30, 2, 1.5, 2, matDesertCrate);
+  addBox(-5, 0.75, 30, 2, 1.5, 2, matDesertCrate);
+  // 骆驼雕像掩体（用深色木头做底座）
+  addBox(30, 0.4, 20, 2, 0.8, 1.5, matDarkWood);
+  addBox(-30, 0.4, -20, 2, 0.8, 1.5, matDarkWood);
 
-  // 混凝土掩体块
-  addBox(15, 0.5, 20, 3, 1, 2, matConcrete);
-  addBox(-15, 0.5, -20, 3, 1, 2, matConcrete);
-  addBox(30, 0.5, 10, 2, 1, 3, matConcrete);
-  addBox(-30, 0.5, -10, 2, 1, 3, matConcrete);
+  // 红色标记柱（沙漠中更醒目）
+  addBox(38, 2, -28, 0.3, 4, 0.3, matRed, false);
+  addBox(-31, 2, -35, 0.3, 4, 0.3, matRed, false);
+  addBox(0, 5, 0, 0.2, 2, 0.2, matRed, false); // 穹顶顶部
 
-  // 红色标记柱
-  addBox(35, 2, -35, 0.3, 4, 0.3, matRed, false);
-  addBox(-35, 2, -35, 0.3, 4, 0.3, matRed, false);
-  addBox(0, 2, 0, 0.3, 5, 0.3, matRed, false);
-
-  // 随机小箱子
+  // 随机小箱子（沙漠色）
   const rng = mulberry32(77);
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     const sx = (rng() - 0.5) * 90;
     const sz = (rng() - 0.5) * 90;
     if (Math.abs(sx) < 5 && Math.abs(sz) < 5) continue;
     const size = 1 + rng() * 1.5;
-    addBox(sx, size / 2, sz, size, size, size, matCrate);
+    addBox(sx, size / 2, sz, size, size, size, matDesertCrate);
   }
 }
 
@@ -2259,6 +2374,7 @@ function gameOver() {
     <p style="font-size:18px;color:#f0c040;margin-bottom:8px">${state.playerName || 'Player1'}</p>
     <p>击杀数: ${state.score} | 到达第 ${state.wave} 波</p>
     <button id="playBtn">再来一局</button>
+    <button id="mapBtn2" style="margin-top:12px;padding:10px 36px;font-size:16px;font-weight:600;background:0 0;color:#aaa;border:1px solid #555;cursor:pointer;letter-spacing:2px">地图选择</button>
     <button id="rankBtn2" style="margin-top:12px;padding:10px 36px;font-size:16px;font-weight:600;background:0 0;color:#aaa;border:1px solid #555;cursor:pointer;letter-spacing:2px">排行榜</button>
   `;
   document.getElementById('playBtn').addEventListener('click', () => {
@@ -2267,6 +2383,9 @@ function gameOver() {
     document.getElementById('name-input').value = state.playerName || 'Player1';
     document.getElementById('name-input').focus();
     document.getElementById('name-input').select();
+  });
+  document.getElementById('mapBtn2').addEventListener('click', () => {
+    document.getElementById('map-overlay').classList.remove('hidden');
   });
   document.getElementById('rankBtn2').addEventListener('click', () => {
     window.__showRank();
