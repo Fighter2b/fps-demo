@@ -1,0 +1,419 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  overflow: hidden;
+  background: #000;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  cursor: default;
+  user-select: none;
+}
+body.pointer-locked {
+  cursor: none;
+}
+
+canvas { display: block; }
+
+/* ── 启动遮罩 ── */
+#blocker {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center;
+}
+#menu {
+  text-align: center; color: #fff;
+}
+#menu h1 {
+  font-size: 64px; letter-spacing: 8px;
+  color: #f0c040; text-shadow: 0 0 30px rgba(240,192,64,.5);
+  margin-bottom: 8px;
+}
+#menu p { font-size: 16px; color: #aaa; margin-bottom: 16px; }
+#menu .controls { line-height: 1.8; color: #888; }
+#playBtn {
+  display: block; margin: 24px auto 0;
+  padding: 14px 48px;
+  font-size: 20px; font-weight: 700;
+  background: #f0c040; color: #111; border: none;
+  cursor: pointer; letter-spacing: 2px;
+  transition: transform .15s, box-shadow .15s;
+}
+#playBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(240,192,64,.6);
+}
+
+/* ── HUD ── */
+#hud {
+  position: fixed; inset: 0; z-index: 10;
+  pointer-events: none;
+}
+
+/* 准星 */
+#crosshair {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.ch-line {
+  position: absolute; background: rgba(255,255,255,.85);
+}
+.ch-top    { width: 2px; height: 12px; left: -1px; top: -18px; }
+.ch-bottom { width: 2px; height: 12px; left: -1px; bottom: -18px; }
+.ch-left   { width: 12px; height: 2px; top: -1px; left: -18px; }
+.ch-right  { width: 12px; height: 2px; top: -1px; right: -18px; }
+.ch-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: rgba(255,50,50,.9);
+  position: absolute; top: -1.5px; left: -1.5px;
+}
+
+/* 生命值 */
+#health-bar {
+  position: absolute; bottom: 40px; left: 40px;
+  display: flex; align-items: center; gap: 10px;
+}
+#health-icon {
+  font-size: 28px; font-weight: 900; color: #4f4;
+}
+#health-fill {
+  width: 200px; height: 8px; background: #333; border-radius: 4px; overflow: hidden;
+}
+#health-bar-inner {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #4f4, #0a0);
+  transition: width .3s;
+}
+#health-text {
+  font-size: 24px; font-weight: 700; color: #fff;
+  text-shadow: 0 0 8px rgba(0,0,0,.8);
+}
+
+/* 弹药 */
+#ammo-display {
+  position: absolute; bottom: 40px; right: 40px;
+  font-size: 36px; font-weight: 700; color: #fff;
+  text-shadow: 0 0 8px rgba(0,0,0,.8);
+}
+#ammo-current { color: #f0c040; }
+#ammo-sep { color: #666; margin: 0 4px; }
+#ammo-reserve { font-size: 22px; color: #aaa; }
+
+#weapon-name {
+  position: absolute; bottom: 18px; right: 40px;
+  font-size: 13px; color: #888; letter-spacing: 2px;
+}
+
+#score-display {
+  position: absolute; top: 30px; right: 40px;
+  font-size: 20px; color: #fff;
+  text-shadow: 0 0 8px rgba(0,0,0,.8);
+}
+
+/* 命中标记 */
+#hit-marker {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px; font-weight: 900; color: #f44;
+  text-shadow: 0 0 6px rgba(255,0,0,.6);
+  opacity: 0; transition: opacity .1s;
+}
+#hit-marker.show { opacity: 1; }
+#hit-marker.hidden { opacity: 0; }
+
+/* 受伤遮罩 */
+#damage-overlay {
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(180,0,0,.4) 100%);
+  opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+#damage-overlay.show { opacity: 1; }
+
+/* 击杀信息 */
+#kill-feed {
+  position: absolute; top: 30px; left: 40px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.kill-entry {
+  color: #f0c040; font-size: 14px; font-weight: 600;
+  text-shadow: 0 0 6px rgba(0,0,0,.8);
+  animation: fadeOut 3s forwards;
+}
+@keyframes fadeOut {
+  0%,70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 换弹提示 */
+#reload-indicator {
+  position: absolute; top: 55%; left: 50%;
+  transform: translate(-50%, 0);
+  color: #f0c040; font-size: 16px; font-weight: 600;
+  text-shadow: 0 0 8px rgba(0,0,0,.8);
+  letter-spacing: 2px;
+  transition: opacity .2s;
+}
+#reload-indicator.hidden {
+  opacity: 0; pointer-events: none;
+}
+
+/* 波次公告 */
+#wave-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50; pointer-events: none;
+}
+#wave-overlay.hidden { display: none; }
+#wave-text {
+  color: #fff; font-size: 52px; font-weight: 900;
+  text-shadow: 0 0 30px rgba(240,192,64,.7), 0 0 60px rgba(0,0,0,.8);
+  letter-spacing: 4px;
+  animation: wavePop 0.6s ease-out both;
+}
+#wave-text.countdown {
+  font-size: 80px;
+  color: #f0c040;
+  animation: wavePop 0.4s ease-out both;
+}
+#wave-text.go {
+  font-size: 64px;
+  color: #4f4;
+  animation: wavePop 0.5s ease-out both;
+}
+@keyframes wavePop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 波次 HUD */
+#wave-hud {
+  position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+  font-size: 28px; font-weight: 900;
+  text-shadow: 0 0 12px rgba(0,0,0,.9);
+  letter-spacing: 2px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,.35); padding: 6px 20px; border-radius: 8px;
+}
+#wave-num {
+  font-size: 36px; color: #f0c040;
+}
+#wave-label {
+  color: #ccc;
+}
+#wave-sep {
+  color: #555; font-size: 20px;
+}
+#wave-enemies-icon {
+  font-size: 22px;
+}
+#wave-enemies {
+  font-size: 32px; color: #f55;
+}
+
+/* ── 护盾条 ── */
+#shield-bar {
+  position: absolute; bottom: 60px; left: 40px;
+  display: flex; align-items: center; gap: 10px;
+}
+#shield-bar.hidden { display: none; }
+#shield-icon { font-size: 24px; }
+#shield-fill {
+  width: 200px; height: 8px; background: #222; border-radius: 4px; overflow: hidden;
+}
+#shield-bar-inner {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #4af, #08f);
+  transition: width .3s;
+}
+#shield-text {
+  font-size: 24px; font-weight: 700; color: #4af;
+  text-shadow: 0 0 8px rgba(0,0,0,.8);
+}
+
+/* ── 奖励选择 ── */
+#reward-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,.8);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 32px;
+}
+#reward-overlay.hidden { display: none; }
+#reward-title {
+  font-size: 42px; font-weight: 900; color: #f0c040;
+  text-shadow: 0 0 20px rgba(240,192,64,.6);
+  letter-spacing: 4px;
+}
+#reward-chests {
+  display: flex; gap: 40px;
+}
+.reward-chest {
+  width: 200px; padding: 28px 20px;
+  background: rgba(255,255,255,.08);
+  border: 2px solid rgba(255,255,255,.15);
+  border-radius: 16px;
+  text-align: center; cursor: pointer;
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+  pointer-events: auto;
+}
+.reward-chest:hover {
+  transform: scale(1.08);
+  border-color: #f0c040;
+  box-shadow: 0 0 30px rgba(240,192,64,.4);
+}
+.reward-chest.opened {
+  border-color: #4f4;
+  background: rgba(80,255,80,.1);
+}
+.reward-chest.chosen {
+  border-color: #f0c040;
+  background: rgba(240,192,64,.15);
+  transform: scale(1.1);
+}
+.reward-chest.disabled {
+  pointer-events: none; opacity: .4;
+}
+.chest-icon {
+  font-size: 56px; margin-bottom: 12px;
+  transition: transform .3s;
+}
+.reward-chest.opened .chest-icon {
+  transform: scale(1.2);
+}
+.chest-name {
+  font-size: 18px; font-weight: 700; color: #f0c040;
+  margin-bottom: 8px; min-height: 24px;
+}
+.chest-desc {
+  font-size: 13px; color: #aaa;
+  line-height: 1.4; min-height: 36px;
+}
+#reward-skip {
+  font-size: 18px; color: #888;
+  cursor: pointer; letter-spacing: 2px;
+  padding: 10px 32px;
+  border: 1px solid #555; border-radius: 8px;
+  transition: color .2s, border-color .2s;
+  pointer-events: auto;
+}
+#reward-skip:hover {
+  color: #f55; border-color: #f55;
+}
+
+/* ── 排行榜按钮 ── */
+#rankBtn {
+  display: block; margin: 12px auto 0;
+  padding: 10px 36px;
+  font-size: 16px; font-weight: 600;
+  background: transparent; color: #aaa;
+  border: 1px solid #555; cursor: pointer;
+  letter-spacing: 2px;
+  transition: color .2s, border-color .2s;
+}
+#rankBtn:hover {
+  color: #f0c040; border-color: #f0c040;
+}
+
+/* ── 玩家名输入 ── */
+#name-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center;
+}
+#name-overlay.hidden { display: none; }
+#name-box {
+  text-align: center; background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 16px; padding: 40px 48px;
+}
+#name-title {
+  font-size: 28px; font-weight: 700; color: #f0c040;
+  margin-bottom: 20px; letter-spacing: 2px;
+}
+#name-input {
+  display: block; width: 260px; margin: 0 auto 20px;
+  padding: 10px 16px; font-size: 18px;
+  background: rgba(255,255,255,.1); color: #fff;
+  border: 1px solid #555; border-radius: 8px;
+  outline: none; text-align: center;
+}
+#name-input:focus { border-color: #f0c040; }
+#name-confirm {
+  padding: 10px 36px; font-size: 16px; font-weight: 700;
+  background: #f0c040; color: #111; border: none;
+  cursor: pointer; border-radius: 8px; letter-spacing: 2px;
+  transition: transform .15s;
+}
+#name-confirm:hover { transform: scale(1.05); }
+
+/* ── 玩家名 HUD ── */
+#player-name-display {
+  position: absolute; top: 66px; right: 40px;
+  font-size: 16px; font-weight: 600; color: #f0c040;
+  text-shadow: 0 0 8px rgba(0,0,0,.8);
+  letter-spacing: 2px;
+}
+
+/* ── 排行榜 ── */
+#rank-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center;
+}
+#rank-overlay.hidden { display: none; }
+#rank-box {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 16px; padding: 32px 40px;
+  min-width: 420px; max-height: 70vh;
+  display: flex; flex-direction: column;
+}
+#rank-title {
+  font-size: 28px; font-weight: 900; color: #f0c040;
+  text-align: center; margin-bottom: 20px;
+  letter-spacing: 3px;
+}
+#rank-list {
+  flex: 1; overflow-y: auto; margin-bottom: 20px;
+}
+.rank-row {
+  display: flex; align-items: center;
+  padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.08);
+  font-size: 15px; color: #ccc;
+}
+.rank-row:nth-child(1) { color: #f0c040; font-weight: 700; }
+.rank-row:nth-child(2) { color: #c0c0c0; font-weight: 600; }
+.rank-row:nth-child(3) { color: #cd7f32; font-weight: 600; }
+.rank-num {
+  width: 32px; font-weight: 900; font-size: 18px;
+  text-align: center;
+}
+.rank-name {
+  flex: 1; padding-left: 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rank-wave, .rank-kills {
+  width: 80px; text-align: center;
+}
+.rank-wave { color: #4af; font-weight: 700; }
+.rank-kills { color: #f55; }
+.rank-header {
+  display: flex; padding: 6px 12px 10px;
+  font-size: 13px; color: #666; letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+}
+.rank-header span:nth-child(1) { width: 32px; text-align: center; }
+.rank-header span:nth-child(2) { flex: 1; padding-left: 8px; }
+.rank-header span:nth-child(3),
+.rank-header span:nth-child(4) { width: 80px; text-align: center; }
+.rank-empty {
+  text-align: center; color: #555; padding: 32px 0;
+  font-size: 15px;
+}
+#rank-close {
+  padding: 10px 32px; font-size: 15px; font-weight: 600;
+  background: transparent; color: #aaa;
+  border: 1px solid #555; border-radius: 8px;
+  cursor: pointer; align-self: center;
+  letter-spacing: 2px; transition: color .2s, border-color .2s;
+}
+#rank-close:hover { color: #f0c040; border-color: #f0c040; }
