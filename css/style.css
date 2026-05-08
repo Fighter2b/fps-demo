@@ -13,6 +13,9 @@ body.pointer-locked {
 
 canvas { display: block; }
 
+#lobby-rooms.hidden,
+#lobby-room.hidden { display: none; }
+
 /* ── 启动遮罩 ── */
 #blocker {
   position: fixed; inset: 0; z-index: 100;
@@ -299,8 +302,8 @@ canvas { display: block; }
   color: #f55; border-color: #f55;
 }
 
-/* ── 地图选择 & 排行榜按钮 ── */
-#mapBtn, #rankBtn {
+/* ── 地图选择 & 排行榜 & 联机按钮 ── */
+#mapBtn, #rankBtn, #multiBtn {
   display: block; margin: 12px auto 0;
   padding: 10px 36px;
   font-size: 16px; font-weight: 600;
@@ -309,7 +312,7 @@ canvas { display: block; }
   letter-spacing: 2px;
   transition: color .2s, border-color .2s;
 }
-#mapBtn:hover, #rankBtn:hover {
+#mapBtn:hover, #rankBtn:hover, #multiBtn:hover {
   color: #f0c040; border-color: #f0c040;
 }
 
@@ -471,3 +474,96 @@ canvas { display: block; }
   letter-spacing: 2px; transition: color .2s, border-color .2s;
 }
 #rank-close:hover { color: #f0c040; border-color: #f0c040; }
+
+/* ── 联机大厅 ── */
+#lobby-overlay {
+  position: fixed; inset: 0; z-index: 110;
+  background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center;
+}
+#lobby-overlay.hidden { display: none; }
+#lobby-box {
+  background: rgba(20,20,30,.95);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 16px;
+  padding: 32px 40px;
+  min-width: 420px; max-width: 500px;
+  color: #fff;
+  display: flex; flex-direction: column; gap: 16px;
+}
+#lobby-title {
+  font-size: 28px; font-weight: 700;
+  color: #f0c040; text-align: center;
+  letter-spacing: 4px;
+}
+#lobby-connection {
+  display: flex; gap: 8px; align-items: center;
+}
+#lobby-connection label {
+  font-size: 14px; color: #aaa; white-space: nowrap;
+}
+#lobby-connection input {
+  flex: 1; padding: 8px 12px;
+  font-size: 14px; background: rgba(255,255,255,.1);
+  border: 1px solid #555; border-radius: 6px;
+  color: #fff; outline: none;
+}
+#lobby-connection input:focus { border-color: #f0c040; }
+#connect-btn {
+  padding: 8px 20px; font-size: 14px; font-weight: 600;
+  background: #f0c040; color: #111; border: none;
+  border-radius: 6px; cursor: pointer;
+}
+#connect-btn:hover { background: #e0b030; }
+
+#create-room-btn {
+  display: block; margin: 12px auto 0;
+  padding: 10px 32px; font-size: 15px; font-weight: 600;
+  background: #f0c040; color: #111; border: none;
+  border-radius: 8px; cursor: pointer;
+}
+#create-room-btn:hover { background: #e0b030; }
+
+#room-title {
+  font-size: 18px; color: #f0c040; text-align: center;
+  margin-bottom: 8px;
+}
+#room-players {
+  min-height: 80px;
+  background: rgba(255,255,255,.05);
+  border-radius: 8px; padding: 12px;
+}
+#room-controls {
+  display: flex; gap: 12px; align-items: center; justify-content: center;
+  margin-top: 8px;
+}
+#room-map-select {
+  padding: 8px 12px; font-size: 14px;
+  background: rgba(255,255,255,.1); color: #fff;
+  border: 1px solid #555; border-radius: 6px;
+  outline: none;
+}
+#room-start-btn {
+  padding: 10px 32px; font-size: 15px; font-weight: 700;
+  background: #f0c040; color: #111; border: none;
+  border-radius: 8px; cursor: pointer;
+}
+#room-start-btn:hover { background: #e0b030; }
+
+#leave-room-btn {
+  padding: 8px 24px; font-size: 14px; font-weight: 600;
+  background: transparent; color: #aaa;
+  border: 1px solid #555; border-radius: 6px;
+  cursor: pointer; align-self: center; margin-top: 8px;
+  letter-spacing: 1px; transition: color .2s, border-color .2s;
+}
+#leave-room-btn:hover { color: #f44; border-color: #f44; }
+
+#lobby-back {
+  padding: 10px 32px; font-size: 15px; font-weight: 600;
+  background: transparent; color: #aaa;
+  border: 1px solid #555; border-radius: 8px;
+  cursor: pointer; align-self: center;
+  letter-spacing: 2px; transition: color .2s, border-color .2s;
+}
+#lobby-back:hover { color: #f0c040; border-color: #f0c040; }

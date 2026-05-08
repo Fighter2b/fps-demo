@@ -79,6 +79,12 @@ const state = {
 };
 
 // ═══════════════════════════════════════════
+//  联机模式
+// ═══════════════════════════════════════════
+let multiplayerMode = false;
+const remotePlayers = new Map(); // playerId -> {group, nameLabel, hpBar, targetPos, ...}
+
+// ═══════════════════════════════════════════
 //  音效系统 (Web Audio API)
 // ═══════════════════════════════════════════
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1941,34 +1947,42 @@ function shoot() {
 
   // 近战攻击
   if (state.waveMelee) {
-    const meleeRange = state.waveMelee === 'hammer' ? 4 : 3;
     state.fireCooldown = state.waveMelee === 'hammer' ? 0.8 : 0.35;
-    meleeSwing = 0; // 从起点开始挥动
+    meleeSwing = 0;
     meleeSwingDir = 1;
     playSound('hit');
 
     camera.getWorldPosition(shootOrigin);
     camera.getWorldDirection(shootDir);
     shootDir.y = 0; shootDir.normalize();
+
+    if (multiplayerMode) {
+      netClient.sendMelee(
+        shootOrigin.x, shootOrigin.y, shootOrigin.z,
+        shootDir.x, shootDir.y, shootDir.z,
+        state.waveMelee
+      );
+      return;
+    }
+
     raycaster.set(shootOrigin, shootDir);
+    const meleeRange = state.waveMelee === 'hammer' ? 4 : 3;
 
     for (const e of state.enemies) {
       if (!e.alive) continue;
       const hits = raycaster.intersectObject(e.group, true);
       if (hits.length > 0 && hits[0].distance < meleeRange) {
-        e.hp = 0; // 一击必杀
+        e.hp = 0;
         e.hitFlash = 0.15;
-        if (e.hp <= 0) {
-          e.alive = false;
-          e.deathTimer = 3;
-          state.score++;
-          playSound('kill');
-          addKillFeed();
-          document.getElementById('score').textContent = state.score;
-          if (state.waveLifeSteal > 0) {
-            state.hp = Math.min(state.maxHp, state.hp + state.waveLifeSteal);
-            updateHealthUI();
-          }
+        e.alive = false;
+        e.deathTimer = 3;
+        state.score++;
+        playSound('kill');
+        addKillFeed();
+        document.getElementById('score').textContent = state.score;
+        if (state.waveLifeSteal > 0) {
+          state.hp = Math.min(state.maxHp, state.hp + state.waveLifeSteal);
+          updateHealthUI();
         }
         const hm = document.getElementById('hit-marker');
         hm.classList.remove('hidden'); hm.classList.add('show');
@@ -2009,6 +2023,16 @@ function shoot() {
   shootDir.y += (Math.random() - 0.5) * CFG.spread;
   shootDir.z += (Math.random() - 0.5) * CFG.spread;
   shootDir.normalize();
+
+  if (multiplayerMode) {
+    // 联机模式：发送射线到服务器，命中判定由服务器处理
+    netClient.sendShoot(
+      shootOrigin.x, shootOrigin.y, shootOrigin.z,
+      shootDir.x, shootDir.y, shootDir.z,
+      'ak47'
+    );
+    return;
+  }
 
   raycaster.set(shootOrigin, shootDir);
 
@@ -2376,6 +2400,7 @@ function gameOver() {
     <button id="playBtn">再来一局</button>
     <button id="mapBtn2" style="margin-top:12px;padding:10px 36px;font-size:16px;font-weight:600;background:0 0;color:#aaa;border:1px solid #555;cursor:pointer;letter-spacing:2px">地图选择</button>
     <button id="rankBtn2" style="margin-top:12px;padding:10px 36px;font-size:16px;font-weight:600;background:0 0;color:#aaa;border:1px solid #555;cursor:pointer;letter-spacing:2px">排行榜</button>
+    <button id="multiBtn" style="margin-top:12px;padding:10px 36px;font-size:16px;font-weight:600;background:0 0;color:#aaa;border:1px solid #555;cursor:pointer;letter-spacing:2px">联机模式</button>
   `;
   document.getElementById('playBtn').addEventListener('click', () => {
     blocker.style.display = 'none';
@@ -2389,6 +2414,10 @@ function gameOver() {
   });
   document.getElementById('rankBtn2').addEventListener('click', () => {
     window.__showRank();
+  });
+  document.getElementById('multiBtn').addEventListener('click', () => {
+    blocker.style.display = 'none';
+    document.getElementById('lobby-overlay').classList.remove('hidden');
   });
 }
 
@@ -2465,9 +2494,14 @@ document.addEventListener('pointerlockchange', () => {
         <h1>暂停</h1>
         <p>点击继续</p>
         <button id="playBtn">继续游戏</button>
+        <button id="multiBtn" style="margin-top:12px;padding:10px 36px;font-size:16px;font-weight:600;background:0 0;color:#aaa;border:1px solid #555;cursor:pointer;letter-spacing:2px">联机模式</button>
       `;
       document.getElementById('playBtn').addEventListener('click', () => {
         window.__startGame();
+      });
+      document.getElementById('multiBtn').addEventListener('click', () => {
+        document.getElementById('blocker').style.display = 'none';
+        document.getElementById('lobby-overlay').classList.remove('hidden');
       });
     }
   }
@@ -2669,29 +2703,49 @@ function update(dt) {
   // ── 时间冻结递减（仅在敌人存活时）──
   if (state.waveTimeStop > 0 && state.waveActive) state.waveTimeStop -= dt;
 
-  // ── 敌人更新 ──
-  for (const e of state.enemies) updateEnemy(e, dt);
+  if (multiplayerMode) {
+    // ── 联机模式：敌人状态由服务器同步，只做死亡动画 ──
+    for (const e of state.enemies) {
+      if (!e.alive) {
+        e.deathTimer -= dt;
+        e.group.rotation.x = Math.min(e.group.rotation.x + dt * 3, Math.PI / 2);
+        e.group.position.y = Math.max(e.group.position.y - dt * 2, -0.5);
+        if (e.deathTimer <= 0) e.group.visible = false;
+      }
+      if (e.hitFlash > 0) {
+        e.hitFlash -= dt;
+        if (e.hitFlash <= 0) e.body.material = enemyMat;
+      }
+    }
+    // 更新远程玩家位置
+    for (const [pid, rp] of remotePlayers) {
+      if (rp.targetPos) {
+        rp.group.position.lerp(rp.targetPos, 0.3);
+      }
+      if (rp.targetYaw !== undefined) {
+        rp.group.rotation.y = rp.targetYaw + Math.PI;
+      }
+    }
+    // 波次公告计时
+    if (state.waveAnnouncing) {
+      state.waveAnnounceTimer -= dt * 1000;
+      if (state.waveAnnounceTimer <= 0) showNextAnnouncement();
+    }
+  } else {
+    // ── 单机模式 ──
+    for (const e of state.enemies) updateEnemy(e, dt);
+    if (state.shield > 0) updateShieldUI();
+    updatePickups(dt);
+    if (state.waveAnnouncing) {
+      state.waveAnnounceTimer -= dt * 1000;
+      if (state.waveAnnounceTimer <= 0) showNextAnnouncement();
+    }
+    checkWaveComplete();
+  }
 
   // ── 波次 HUD 更新 ──
   const aliveCount = state.enemies.filter(e => e.alive).length;
   document.getElementById('wave-enemies').textContent = aliveCount;
-
-  // ── 护盾 HUD ──
-  if (state.shield > 0) updateShieldUI();
-
-  // ── 道具更新 ──
-  updatePickups(dt);
-
-  // ── 波次公告计时 ──
-  if (state.waveAnnouncing) {
-    state.waveAnnounceTimer -= dt * 1000;
-    if (state.waveAnnounceTimer <= 0) {
-      showNextAnnouncement();
-    }
-  }
-
-  // ── 波次完成检测 ──
-  checkWaveComplete();
 }
 
 function animate() {
@@ -2699,6 +2753,319 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05); // 限制 dt 防止穿透
   update(dt);
   renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════
+//  联机：远程玩家渲染
+// ═══════════════════════════════════════════
+const matTeammate = new THREE.MeshStandardMaterial({ color: 0x2288CC, roughness: 0.6, metalness: 0.2 });
+const matTeammateDark = new THREE.MeshStandardMaterial({ color: 0x1a6699, roughness: 0.7 });
+const matTeammateSkin = new THREE.MeshStandardMaterial({ color: 0xDEB887, roughness: 0.8 });
+
+function createRemotePlayerModel(playerName) {
+  const group = new THREE.Group();
+  group.userData.isEnemy = true; // 标记以便射线检测排除
+
+  // 躯干
+  const torsoGeo = new THREE.BoxGeometry(0.55, 0.7, 0.3);
+  const torso = new THREE.Mesh(torsoGeo, matTeammate);
+  torso.position.y = 1.1;
+  group.add(torso);
+
+  // 头
+  const headGeo = new THREE.SphereGeometry(0.18, 8, 6);
+  const head = new THREE.Mesh(headGeo, matTeammateSkin);
+  head.position.y = 1.6;
+  group.add(head);
+
+  // 头盔
+  const helmetGeo = new THREE.SphereGeometry(0.21, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.6);
+  const helmet = new THREE.Mesh(helmetGeo, matTeammateDark);
+  helmet.position.y = 1.65;
+  group.add(helmet);
+
+  // 手臂
+  for (const side of [-1, 1]) {
+    const armGeo = new THREE.BoxGeometry(0.15, 0.55, 0.15);
+    const arm = new THREE.Mesh(armGeo, matTeammate);
+    arm.position.set(side * 0.38, 1.05, 0);
+    group.add(arm);
+  }
+
+  // 腿
+  for (const side of [-1, 1]) {
+    const legGeo = new THREE.BoxGeometry(0.18, 0.6, 0.18);
+    const leg = new THREE.Mesh(legGeo, matTeammateDark);
+    leg.position.set(side * 0.15, 0.45, 0);
+    group.add(leg);
+  }
+
+  scene.add(group);
+
+  // 名字标签
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(playerName, 128, 40);
+  const tex = new THREE.CanvasTexture(canvas);
+  const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const nameLabel = new THREE.Sprite(spriteMat);
+  nameLabel.scale.set(2, 0.5, 1);
+  nameLabel.position.y = 2.1;
+  group.add(nameLabel);
+
+  return { group, nameLabel, targetPos: new THREE.Vector3(), targetYaw: 0 };
+}
+
+function updateRemotePlayer(pid, data) {
+  let rp = remotePlayers.get(pid);
+  if (!rp) {
+    rp = createRemotePlayerModel(data.name || pid);
+    remotePlayers.set(pid, rp);
+  }
+  rp.targetPos.set(data.x, data.y, data.z);
+  rp.targetYaw = data.yaw;
+}
+
+function removeRemotePlayer(pid) {
+  const rp = remotePlayers.get(pid);
+  if (rp) {
+    scene.remove(rp.group);
+    remotePlayers.delete(pid);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  联机：网络回调绑定
+// ═══════════════════════════════════════════
+function initNetCallbacks() {
+  const nc = window.netClient;
+  if (!nc) return;
+
+  nc.onGameStart = (msg) => {
+    multiplayerMode = true;
+    currentMap = msg.mapId;
+    buildMap();
+    buildWeapon();
+    spawnEnemies();
+    state.wave = 0;
+    state.score = 0;
+    state.hp = 100;
+    state.maxHp = 100;
+    state.ammo = CFG.magSize;
+    state.reserve = CFG.reserveAmmo;
+    state.playing = true;
+    state.onGround = true;
+    camera.position.set(0, CFG.playerHeight, 5);
+    state.yaw = 0;
+    state.pitch = 0;
+    updateHealthUI();
+    document.getElementById('score').textContent = '0';
+    document.getElementById('wave-num').textContent = '0';
+    document.getElementById('blocker').style.display = 'none';
+    document.getElementById('name-overlay').classList.add('hidden');
+    document.getElementById('lobby-overlay').classList.add('hidden');
+    renderer.domElement.requestPointerLock();
+    nc.startInputSync(() => ({
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+      yaw: state.yaw,
+      pitch: state.pitch,
+      moveState: state.velocity.length() > 0.1 ? (state.keys['ShiftLeft'] ? 'run' : 'walk') : 'idle',
+      weapon: state.waveMelee || 'ak47',
+      muzzleFlash: state.muzzleTimer > 0,
+    }));
+  };
+
+  nc.onGameState = (msg) => {
+    // 同步敌人状态
+    for (const se of msg.enemies) {
+      const localEnemy = state.enemies[se.id];
+      if (!localEnemy) continue;
+      localEnemy.group.position.set(se.x, se.y, se.z);
+      localEnemy.group.rotation.y = se.ry;
+      localEnemy.hp = se.hp;
+      localEnemy.alive = se.alive;
+      localEnemy.state = se.st;
+      if (!se.alive && se.dt > 0) {
+        localEnemy.deathTimer = se.dt;
+      }
+      if (se.hf > 0) {
+        localEnemy.hitFlash = se.hf;
+        localEnemy.body.material = hitFlashMat;
+      }
+      if (localEnemy.muzzle) {
+        localEnemy.muzzle.material.opacity = se.mt > 0 ? 1 : 0;
+      }
+    }
+    // 同步远程玩家
+    for (const [pid, pdata] of Object.entries(msg.players)) {
+      if (pid === nc.playerId) continue;
+      updateRemotePlayer(pid, pdata);
+    }
+    // 移除已断线的远程玩家
+    for (const [pid] of remotePlayers) {
+      if (!msg.players[pid]) removeRemotePlayer(pid);
+    }
+  };
+
+  nc.onEnemyHit = (msg) => {
+    const e = state.enemies[msg.enemyId];
+    if (!e) return;
+    e.hitFlash = 0.15;
+    e.body.material = hitFlashMat;
+    playSound('hit');
+    const hm = document.getElementById('hit-marker');
+    hm.classList.remove('hidden');
+    hm.classList.add('show');
+    hm.style.color = msg.isHeadshot ? '#ff0' : '#f44';
+    hm.textContent = msg.isHeadshot ? '✕' : 'X';
+    state.hitMarkerTimer = 0.2;
+  };
+
+  nc.onEnemyKilled = (msg) => {
+    const e = state.enemies[msg.enemyId];
+    if (e) {
+      e.alive = false;
+      e.deathTimer = 3;
+    }
+    if (msg.killerId === nc.playerId) {
+      state.score = msg.killerScore;
+      document.getElementById('score').textContent = state.score;
+      addKillFeed();
+      if (state.waveLifeSteal > 0) {
+        state.hp = Math.min(state.maxHp, state.hp + state.waveLifeSteal);
+        updateHealthUI();
+      }
+    }
+    playSound('kill');
+  };
+
+  nc.onWaveStart = (msg) => {
+    state.wave = msg.waveNum;
+    state.waveActive = false;
+    state.waveAnnouncing = true;
+    state.waveAnnounceQueue = [
+      { text: '第 ' + msg.waveNum + ' 波次敌人即将袭来！', duration: 1500, cls: '' },
+      { text: '3', duration: 800, cls: 'countdown' },
+      { text: '2', duration: 800, cls: 'countdown' },
+      { text: '1', duration: 800, cls: 'countdown' },
+      { text: '开始！', duration: 600, cls: 'go' },
+    ];
+    state.waveAnnounceTimer = 0;
+    showNextAnnouncement();
+    document.getElementById('wave-num').textContent = msg.waveNum;
+    // 确保敌人池足够
+    while (state.enemies.length < 20) {
+      const e = createEnemy();
+      e.alive = false;
+      e.group.visible = false;
+      state.enemies.push(e);
+    }
+  };
+
+  nc.onWaveComplete = () => {
+    state.waveActive = false;
+  };
+
+  nc.onRewardChoices = (msg) => {
+    state.rewardPhase = true;
+    state.playing = false;
+    document.exitPointerLock();
+    rewardChoices = msg.choices;
+    const chests = document.querySelectorAll('.reward-chest');
+    chests.forEach((el, i) => {
+      const reward = msg.choices[i];
+      if (!reward) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      el.classList.remove('opened', 'chosen', 'disabled');
+      el.querySelector('.chest-icon').textContent = reward.icon;
+      el.querySelector('.chest-name').textContent = reward.name;
+      el.querySelector('.chest-desc').textContent = reward.desc;
+    });
+    document.getElementById('reward-skip').style.display = '';
+    document.getElementById('reward-overlay').classList.remove('hidden');
+  };
+
+  nc.onPlayerHurt = (msg) => {
+    if (msg.playerId === nc.playerId) {
+      state.hp = msg.hp;
+      updateHealthUI();
+      state.damageTimer = 0.3;
+      document.getElementById('damage-overlay').classList.remove('hidden');
+      document.getElementById('damage-overlay').classList.add('show');
+      playSound('hurt');
+    }
+  };
+
+  nc.onPlayerKilled = (msg) => {
+    if (msg.playerId === nc.playerId) {
+      state.hp = 0;
+      state.playing = false;
+      updateHealthUI();
+    }
+  };
+
+  nc.onGameOver = (msg) => {
+    state.playing = false;
+    multiplayerMode = false;
+    nc.stopInputSync();
+    // 显示游戏结束界面
+    const blocker = document.getElementById('blocker');
+    const menu = document.getElementById('menu');
+    let html = '<h1 style="color:#f44;font-size:48px">游戏结束</h1>';
+    html += '<p style="font-size:20px">到达波次: ' + msg.wave + '</p>';
+    html += '<div style="margin:20px 0">';
+    for (const s of msg.scores) {
+      html += '<p>' + s.name + ': ' + s.score + ' 击杀</p>';
+    }
+    html += '</div>';
+    html += '<button id="backToMenu" style="padding:12px 30px;font-size:18px;cursor:pointer;background:#f0c040;border:none;border-radius:8px;color:#000;font-weight:700">返回主菜单</button>';
+    menu.innerHTML = html;
+    blocker.style.display = 'flex';
+    document.getElementById('backToMenu').onclick = () => {
+      location.reload();
+    };
+  };
+
+  nc.onPlayerLeft = (msg) => {
+    removeRemotePlayer(msg.id);
+  };
+
+  // 联机模式下奖励选择发送到服务器
+  const origInitRewardHandlers = initRewardHandlers;
+  const rewardChests = document.querySelectorAll('.reward-chest');
+  rewardChests.forEach((el) => {
+    el.addEventListener('click', () => {
+      if (!multiplayerMode || !state.rewardPhase) return;
+      const idx = parseInt(el.dataset.idx);
+      const reward = rewardChoices[idx];
+      if (!reward || el.classList.contains('disabled')) return;
+      el.classList.add('chosen');
+      rewardChests.forEach(c => { if (c !== el) c.classList.add('disabled'); });
+      document.getElementById('reward-skip').style.display = 'none';
+      nc.sendRewardPick(reward.id);
+      setTimeout(() => {
+        document.getElementById('reward-overlay').classList.add('hidden');
+        state.rewardPhase = false;
+        state.playing = true;
+        renderer.domElement.requestPointerLock();
+      }, 800);
+    });
+  });
+  document.getElementById('reward-skip').addEventListener('click', () => {
+    if (!multiplayerMode || !state.rewardPhase) return;
+    nc.sendRewardPick(null);
+    document.getElementById('reward-overlay').classList.add('hidden');
+    state.rewardPhase = false;
+    state.playing = true;
+    renderer.domElement.requestPointerLock();
+  });
 }
 
 // ═══════════════════════════════════════════
@@ -2720,6 +3087,7 @@ try {
   spawnPickups();
   updateHealthUI();
   initRewardHandlers();
+  initNetCallbacks();
   animate();
 
   // 如果用户在模块加载前就点了按钮，自动启动
